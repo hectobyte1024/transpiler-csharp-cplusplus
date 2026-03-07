@@ -1,0 +1,37 @@
+; Module: program
+
+function int @Add(int %a, int %b) {
+entry:
+  %t0 = load a
+  %t1 = load b
+  %t2 = add %t0, %t1
+  ret %t2
+}
+
+function int @Multiply(int %a, int %b) {
+entry:
+  %t0 = load a
+  %t1 = load b
+  %t2 = mul %t0, %t1
+  ret %t2
+}
+
+function void @Main() {
+entry:
+  x = alloca "int"
+  %t0 = load 10
+  x = store %t0
+  y = alloca "int"
+  %t1 = load 20
+  y = store %t1
+  sum = alloca "int"
+  %t2 = call <function>
+  sum = store %t2
+  product = alloca "int"
+  %t3 = call <function>
+  product = store %t3
+  %t4 = call <function>
+  %t5 = call <function>
+  ret
+}
+
