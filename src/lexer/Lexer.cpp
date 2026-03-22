@@ -1,6 +1,7 @@
 #include "Lexer.h"
 #include <stdexcept>
 #include <cctype>
+#include <algorithm>
 
 namespace Compiler {
 
@@ -54,17 +55,102 @@ void Lexer::initializeKeywords() {
 }
 
 void Lexer::initializePatterns() {
-    // Note: These patterns use our custom regex engine
-    // Pattern priorities ensure correct token recognition
+    // Token patterns using custom regex engine
+    // Higher priority patterns are checked first for maximal munch
+    // Patterns are processed with longest-match-first strategy
+    // Note: All regex metacharacters are properly escaped
     
-    // Identifiers: [a-zA-Z_][a-zA-Z0-9_]*
-    // Note: We handle this manually for better performance
+    // Numeric literals (before identifiers to catch digits first)
+    patterns.push_back(TokenPattern(TokenType::FLOAT_LITERAL, "[0-9]+\\.[0-9]+", 150));
+    patterns.push_back(TokenPattern(TokenType::INTEGER_LITERAL, "[0-9]+", 140));
     
-    // Integer literals: [0-9]+
-    // Float literals: [0-9]+\.[0-9]+
-    // Note: We handle these manually
+    // Identifiers (keywords handled separately after pattern match)
+    patterns.push_back(TokenPattern(TokenType::IDENTIFIER, "[a-zA-Z_][a-zA-Z0-9_]*", 130));
     
-    // We'll use manual scanning for most tokens for efficiency
+    // Two-character operators (before single-char to prefer longer match)
+    patterns.push_back(TokenPattern(TokenType::OP_INCREMENT, "\\+\\+", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_DECREMENT, "--", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_PLUS_ASSIGN, "\\+=", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_MINUS_ASSIGN, "-=", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_EQUAL, "==", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_NOT_EQUAL, "!=", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_LESS_EQUAL, "<=", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_GREATER_EQUAL, ">=", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_LOGICAL_AND, "&&", 120));
+    patterns.push_back(TokenPattern(TokenType::OP_LOGICAL_OR, "\\|\\|", 120));  // Escaped
+    
+    // Single-character operators and delimiters (lowest priority)
+    patterns.push_back(TokenPattern(TokenType::OP_PLUS, "\\+", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_MINUS, "-", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_MULTIPLY, "\\*", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_DIVIDE, "/", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_MODULO, "%", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_ASSIGN, "=", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_LOGICAL_NOT, "!", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_LESS, "<", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_GREATER, ">", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_BITWISE_AND, "&", 100));
+    patterns.push_back(TokenPattern(TokenType::OP_BITWISE_OR, "\\|", 100));   // Escaped
+    patterns.push_back(TokenPattern(TokenType::OP_BITWISE_XOR, "\\^", 100));  // Escaped
+    patterns.push_back(TokenPattern(TokenType::OP_BITWISE_NOT, "~", 100));
+    
+    // Delimiters (same priority)
+    patterns.push_back(TokenPattern(TokenType::SEMICOLON, ";", 100));
+    patterns.push_back(TokenPattern(TokenType::COMMA, ",", 100));
+    patterns.push_back(TokenPattern(TokenType::DOT, "\\.", 100));             // Escaped (. is wildcard in regex)
+    patterns.push_back(TokenPattern(TokenType::LPAREN, "\\(", 100));          // Escaped
+    patterns.push_back(TokenPattern(TokenType::RPAREN, "\\)", 100));          // Escaped
+    patterns.push_back(TokenPattern(TokenType::LBRACE, "\\{", 100));          // Escaped
+    patterns.push_back(TokenPattern(TokenType::RBRACE, "\\}", 100));          // Escaped
+    patterns.push_back(TokenPattern(TokenType::LBRACKET, "\\[", 100));        // Escaped
+    patterns.push_back(TokenPattern(TokenType::RBRACKET, "\\]", 100));        // Escaped
+    
+    // Sort by priority (highest first)
+    std::sort(patterns.begin(), patterns.end(),
+              [](const TokenPattern& a, const TokenPattern& b) {
+                  return a.priority > b.priority;
+              });
+}
+
+// Attempt to match patterns starting at current position
+// Returns Token with longest match, or UNKNOWN if no match
+// Uses maximal-munch principle: longest match wins
+Token Lexer::matchPattern() {
+    int startLine = line;
+    int startColumn = column;
+    
+    Token bestMatch(TokenType::UNKNOWN, "", startLine, startColumn);
+    size_t longestLength = 0;
+    
+    // Try each pattern and find longest match
+    for (const auto& pattern : patterns) {
+        // Try progressively longer substrings from current position
+        // to find longest match (maximal munch)
+        for (size_t len = 1; len <= source.length() - position; len++) {
+            std::string candidate = source.substr(position, len);
+            
+            // Check if this substring matches the pattern
+            if (pattern.regex->match(candidate)) {
+                // Found a match - track if it's the longest so far
+                if (len > longestLength) {
+                    longestLength = len;
+                    bestMatch = Token(pattern.type, candidate, startLine, startColumn);
+                }
+            } else {
+                // If match fails, longer strings won't match either
+                break;
+            }
+        }
+    }
+    
+    // If we found a match, advance our position
+    if (longestLength > 0) {
+        for (size_t i = 0; i < longestLength; i++) {
+            advance();
+        }
+    }
+    
+    return bestMatch;
 }
 
 char Lexer::peek() {
@@ -250,114 +336,33 @@ Token Lexer::scanToken() {
     int startColumn = column;
     char c = peek();
     
-    // Identifiers and keywords
-    if (std::isalpha(c) || c == '_') {
-        return scanIdentifierOrKeyword();
-    }
-    
-    // Numbers
-    if (std::isdigit(c)) {
-        return scanNumber();
-    }
-    
-    // String literals
+    // String literals (manual scanning for escape sequences)
     if (c == '"') {
         return scanString();
     }
     
-    // Character literals
+    // Character literals (manual scanning for escape sequences)
     if (c == '\'') {
         return scanChar();
     }
     
-    // Operators and delimiters
-    advance(); // consume first character
-    
-    switch (c) {
-        // Two-character operators
-        case '+':
-            if (peek() == '+') {
-                advance();
-                return Token(TokenType::OP_INCREMENT, "++", startLine, startColumn);
-            } else if (peek() == '=') {
-                advance();
-                return Token(TokenType::OP_PLUS_ASSIGN, "+=", startLine, startColumn);
+    // Try pattern matching via regex engine
+    // This handles identifiers, keywords, numbers, and operators
+    Token patternMatch = matchPattern();
+    if (patternMatch.type != TokenType::UNKNOWN) {
+        // Check if identifier matched is actually a keyword
+        if (patternMatch.type == TokenType::IDENTIFIER) {
+            auto it = keywords.find(patternMatch.lexeme);
+            if (it != keywords.end()) {
+                return Token(it->second, patternMatch.lexeme, startLine, startColumn);
             }
-            return Token(TokenType::OP_PLUS, "+", startLine, startColumn);
-            
-        case '-':
-            if (peek() == '-') {
-                advance();
-                return Token(TokenType::OP_DECREMENT, "--", startLine, startColumn);
-            } else if (peek() == '=') {
-                advance();
-                return Token(TokenType::OP_MINUS_ASSIGN, "-=", startLine, startColumn);
-            }
-            return Token(TokenType::OP_MINUS, "-", startLine, startColumn);
-            
-        case '=':
-            if (peek() == '=') {
-                advance();
-                return Token(TokenType::OP_EQUAL, "==", startLine, startColumn);
-            }
-            return Token(TokenType::OP_ASSIGN, "=", startLine, startColumn);
-            
-        case '!':
-            if (peek() == '=') {
-                advance();
-                return Token(TokenType::OP_NOT_EQUAL, "!=", startLine, startColumn);
-            }
-            return Token(TokenType::OP_LOGICAL_NOT, "!", startLine, startColumn);
-            
-        case '<':
-            if (peek() == '=') {
-                advance();
-                return Token(TokenType::OP_LESS_EQUAL, "<=", startLine, startColumn);
-            }
-            return Token(TokenType::OP_LESS, "<", startLine, startColumn);
-            
-        case '>':
-            if (peek() == '=') {
-                advance();
-                return Token(TokenType::OP_GREATER_EQUAL, ">=", startLine, startColumn);
-            }
-            return Token(TokenType::OP_GREATER, ">", startLine, startColumn);
-            
-        case '&':
-            if (peek() == '&') {
-                advance();
-                return Token(TokenType::OP_LOGICAL_AND, "&&", startLine, startColumn);
-            }
-            return Token(TokenType::OP_BITWISE_AND, "&", startLine, startColumn);
-            
-        case '|':
-            if (peek() == '|') {
-                advance();
-                return Token(TokenType::OP_LOGICAL_OR, "||", startLine, startColumn);
-            }
-            return Token(TokenType::OP_BITWISE_OR, "|", startLine, startColumn);
-            
-        // Single-character operators
-        case '*': return Token(TokenType::OP_MULTIPLY, "*", startLine, startColumn);
-        case '/': return Token(TokenType::OP_DIVIDE, "/", startLine, startColumn);
-        case '%': return Token(TokenType::OP_MODULO, "%", startLine, startColumn);
-        case '^': return Token(TokenType::OP_BITWISE_XOR, "^", startLine, startColumn);
-        case '~': return Token(TokenType::OP_BITWISE_NOT, "~", startLine, startColumn);
-        
-        // Delimiters
-        case ';': return Token(TokenType::SEMICOLON, ";", startLine, startColumn);
-        case ',': return Token(TokenType::COMMA, ",", startLine, startColumn);
-        case '.': return Token(TokenType::DOT, ".", startLine, startColumn);
-        case '(': return Token(TokenType::LPAREN, "(", startLine, startColumn);
-        case ')': return Token(TokenType::RPAREN, ")", startLine, startColumn);
-        case '{': return Token(TokenType::LBRACE, "{", startLine, startColumn);
-        case '}': return Token(TokenType::RBRACE, "}", startLine, startColumn);
-        case '[': return Token(TokenType::LBRACKET, "[", startLine, startColumn);
-        case ']': return Token(TokenType::RBRACKET, "]", startLine, startColumn);
-        
-        default:
-            return Token(TokenType::UNKNOWN, std::string(1, c), startLine, startColumn);
+        }
+        return patternMatch;
     }
+    
+    // If no pattern matched, consume one character as unknown
+    advance();
+    return Token(TokenType::UNKNOWN, std::string(1, c), startLine, startColumn);
 }
 
 Token Lexer::nextToken() {

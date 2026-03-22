@@ -6,16 +6,14 @@
 #include <memory>
 #include <stdexcept>
 
-using namespace System;
-namespace HelloWorld
+// Interface: IShape
+class IShape
 {
-    class Program
-    {
     public:
-        static void Main();
-    };
-
-}
+        virtual double GetArea() = 0;
+public:
+    virtual ~IShape() = default;
+};
 
 
 #endif // GENERATED_H
