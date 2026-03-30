@@ -50,6 +50,7 @@ public:
     NFA& operator=(NFA&&) = default;
     
     // Thompson Construction operations
+    static NFA epsilon();  // Matches empty string
     static NFA fromChar(char c);
     static NFA concatenate(NFA&& left, NFA&& right);
     static NFA alternate(NFA&& left, NFA&& right);

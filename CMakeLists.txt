@@ -42,8 +42,28 @@ add_executable(cs2cpp
     ${CODEGEN_SOURCES}
 )
 
+# Regex validator executable
+add_executable(regex_validator
+    src/regex_validator.cpp
+    ${REGEX_SOURCES}
+)
+
+# Regex tracer/debugger executable
+add_executable(regex_trace
+    src/regex_trace.cpp
+    ${REGEX_SOURCES}
+)
+
 # Include directories
 target_include_directories(cs2cpp PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_include_directories(regex_validator PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_include_directories(regex_trace PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 

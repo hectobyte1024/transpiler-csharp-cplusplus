@@ -15,6 +15,14 @@ NFAState* NFA::createState(bool accepting) {
     return newState;
 }
 
+// Thompson Construction: Create NFA for empty string (epsilon)
+NFA NFA::epsilon() {
+    NFA nfa;
+    NFAState* start = nfa.createState(true);  // Start state is also accepting
+    nfa.startState = start;
+    return nfa;
+}
+
 // Thompson Construction: Create NFA for single character
 NFA NFA::fromChar(char c) {
     NFA nfa;

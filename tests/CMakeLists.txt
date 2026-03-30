@@ -9,6 +9,15 @@ add_executable(test_regex test_regex.cpp
 
 target_include_directories(test_regex PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
+# Comprehensive test for regex engine (50+ test cases)
+add_executable(test_regex_comprehensive test_regex_comprehensive.cpp
+    ../src/regex/NFA.cpp
+    ../src/regex/DFA.cpp
+    ../src/regex/RegexParser.cpp
+)
+
+target_include_directories(test_regex_comprehensive PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 # Test for lexer
 add_executable(test_lexer test_lexer.cpp
     ../src/regex/NFA.cpp
@@ -53,6 +62,7 @@ target_include_directories(test_ir PRIVATE ${CMAKE_SOURCE_DIR}/src)
 enable_testing()
 
 add_test(NAME regex_test COMMAND test_regex)
+add_test(NAME regex_comprehensive_test COMMAND test_regex_comprehensive)
 add_test(NAME lexer_test COMMAND test_lexer)
 add_test(NAME parser_test COMMAND test_parser)
 add_test(NAME ir_test COMMAND test_ir)

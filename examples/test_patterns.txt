@@ -1,0 +1,142 @@
+# Example Regex Validator Test File
+# Format: PATTERN: regex
+#         DESC: description
+#         TESTS:
+#           test_input -> expected_result
+#         ---
+
+# Basic pattern matching
+PATTERN: hello
+DESC: Literal string "hello"
+TESTS:
+  hello -> true
+  Hello -> false
+  hell -> false
+  helloworld -> false
+---
+
+# Digit matching
+PATTERN: \d+
+DESC: One or more digits
+TESTS:
+  123 -> true
+  0 -> true
+  9999 -> true
+  abc -> false
+  12a -> false
+---
+
+# Lowercase letters
+PATTERN: [a-z]+
+DESC: One or more lowercase letters
+TESTS:
+  hello -> true
+  world -> true
+  abc -> true
+  ABC -> false
+  abc123 -> false
+---
+
+# Word characters
+PATTERN: \w+
+DESC: One or more word characters (letters, digits, underscore)
+TESTS:
+  hello -> true
+  test123 -> true
+  _var -> true
+  hello world -> false
+  hello! -> false
+---
+
+# Email-like pattern
+PATTERN: [a-z]+@[a-z]+
+DESC: Simple email pattern
+TESTS:
+  user@domain -> true
+  test@example -> true
+  a@b -> true
+  @domain -> false
+  user@ -> false
+  user domain -> false
+---
+
+# Optional parts
+PATTERN: a?b?c?
+DESC: Zero or one of each letter
+TESTS:
+  -> true
+  a -> true
+  b -> true
+  c -> true
+  ab -> true
+  abc -> true
+  abcd -> false
+---
+
+# Alternation
+PATTERN: cat|dog|bird
+DESC: Choose one animal
+TESTS:
+  cat -> true
+  dog -> true
+  bird -> true
+  fish -> false
+  catdog -> false
+---
+
+# Character ranges
+PATTERN: [0-9a-f]
+DESC: Hex digit (0-9, a-f)
+TESTS:
+  0 -> true
+  5 -> true
+  f -> true
+  a -> true
+  g -> false
+  A -> false
+---
+
+# Wildcard patterns
+PATTERN: a.*b
+DESC: 'a' followed by anything, then 'b'
+TESTS:
+  ab -> true
+  acb -> true
+  axxxb -> true
+  a123b -> true
+  ac -> false
+  b -> false
+---
+
+# Escape sequences
+PATTERN: \+
+DESC: Literal plus sign
+TESTS:
+  + -> true
+  a -> false
+  ++ -> false
+---
+
+# Complex pattern with grouping
+PATTERN: (a|b)+c
+DESC: One or more a's or b's, then c
+TESTS:
+  ac -> true
+  bc -> true
+  abc -> true
+  ababc -> true
+  c -> false
+  ab -> false
+---
+
+# Decimal numbers
+PATTERN: \d+\.\d+
+DESC: Decimal number (digits.digits)
+TESTS:
+  3.14 -> true
+  0.0 -> true
+  123.456 -> true
+  3. -> false
+  .14 -> false
+  3.14.15 -> false
+---

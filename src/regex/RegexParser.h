@@ -50,6 +50,9 @@ public:
     bool match(const std::string& input);
     bool search(const std::string& input);
     std::vector<std::pair<size_t, size_t>> findAll(const std::string& input);
+    
+    // Get the DFA for debugging/tracing
+    const DFA& getDFA() const { return dfa; }
 };
 
 } // namespace Regex

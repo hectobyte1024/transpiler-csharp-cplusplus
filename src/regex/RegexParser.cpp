@@ -29,6 +29,10 @@ bool RegexParser::isMetaChar(char c) {
 
 // Expression -> Term ('|' Term)*
 NFA RegexParser::parseExpression() {
+    if (isAtEnd()) {
+        // Empty pattern matches empty string only
+        return NFA::epsilon();
+    }
     NFA result = parseTerm();
     
     while (peek() == '|') {
@@ -201,8 +205,28 @@ NFA RegexParser::parseCharClass() {
         result = NFA::alternate(std::move(result), NFA::fromChar(chars[i]));
     }
     
-    // TODO: Handle negation properly
-    // For now, we ignore negation as it requires full alphabet knowledge
+    // Handle negation: [^abc] matches any character NOT in the set
+    if (negate) {
+        // For negated classes, we add all printable ASCII chars except those in the set
+        std::set<char> charSet(chars.begin(), chars.end());
+        
+        // Start with space as first char not in set
+        if (charSet.find(' ') == charSet.end()) {
+            result = NFA::fromChar(' ');
+            for (char c = '!'; c <= '~'; c++) {
+                if (charSet.find(c) == charSet.end()) {
+                    result = NFA::alternate(std::move(result), NFA::fromChar(c));
+                }
+            }
+        } else {
+            result = NFA::fromChar('!');
+            for (char c = '"'; c <= '~'; c++) {
+                if (charSet.find(c) == charSet.end()) {
+                    result = NFA::alternate(std::move(result), NFA::fromChar(c));
+                }
+            }
+        }
+    }
     
     return result;
 }
